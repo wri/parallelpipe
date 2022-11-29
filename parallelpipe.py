@@ -13,7 +13,7 @@ except ImportError:
 
 
 class EXIT:
-    """This represent a unique value to be sent in the queue to stop the iteration"""
+    """This represents a unique value to be sent in the queue to stop the iteration"""
 
     pass
 
@@ -28,7 +28,7 @@ def iterqueue(queue, expected):
 
 
 class Task(Process):
-    """Represent one single task executing a callable in a subrocess"""
+    """Represents one single task executing a callable in a subprocess"""
 
     def __init__(self, callable, args=(), kwargs={}):
         super(Task, self).__init__()
@@ -80,7 +80,7 @@ class Task(Process):
             # errors
             self._que_err.put((self.name, e))
             if input is not None:
-                for i in input:
+                for _ in input:
                     pass
             raise
 
@@ -116,7 +116,7 @@ class Stage(object):
             raise ValueError("workers have to be greater then zero")
         if qsize < 0:
             raise ValueError("qsize have to be greater or equal zero")
-        self.qsize = qsize  # output que size
+        self.qsize = qsize  # output queue size
         self.workers = workers
         return self
 
@@ -143,7 +143,7 @@ class Stage(object):
             p.set_out(que_out, num_followers)
 
     def set_err(self, que_err):
-        """Set the error queue. We push here all the error we get"""
+        """Set the error queue. We push here all the errors we get"""
         for p in self.processes:
             p.set_err(que_err)
 
@@ -156,7 +156,7 @@ class Stage(object):
         """Wait for all the subprocesses to finish"""
         for p in self.processes:
             p.join()
-        self._processes = None  # this ensure we can reuse this taskpool again if needed
+        self._processes = None  # this ensures we can reuse this taskpool again if needed
 
     def __str__(self):
         return "%s(x%d)" % (self.target_name, self.workers)
@@ -204,7 +204,7 @@ def map_stage(workers=1, qsize=0, filter_errors=False):
                 for item in it:
                     try:
                         yield f(item, *args, **argv)
-                    except Exception as e:
+                    except Exception:
                         pass
 
         else:
@@ -271,7 +271,7 @@ class Pipeline(list):
                 )
             else:
                 msg = (
-                    '%d tasks raised an exeption. First error reported on task "%s": %s'
+                    '%d tasks raised an exception. First error reported on task "%s": %s'
                     % (len(errors), task_name, repr(ex))
                 )
 
