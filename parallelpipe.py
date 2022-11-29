@@ -5,13 +5,18 @@ producer - map - map2 /
          \ map /
 """
 from multiprocessing import Process, Queue
-from time import sleep
-import inspect
-import collections
+
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
 
 class EXIT:
     """This represent a unique value to be sent in the queue to stop the iteration"""
+
     pass
+
 
 def iterqueue(queue, expected):
     """Iterate all value from the queue until the ``expected`` number of EXIT elements is
@@ -21,8 +26,10 @@ def iterqueue(queue, expected):
             yield item
         expected -= 1
 
+
 class Task(Process):
     """Represent one single task executing a callable in a subrocess"""
+
     def __init__(self, callable, args=(), kwargs={}):
         super(Task, self).__init__()
         self._callable = callable
@@ -57,9 +64,9 @@ class Task(Process):
         """Execute the task on all the input and send the needed number of EXIT at the end"""
         input = self._consume()
         put_item = self._que_out.put
-        
+
         try:
-            if input is None: # producer
+            if input is None:  # producer
                 res = self._callable(*self._args, **self._kwargs)
             else:
                 res = self._callable(input, *self._args, **self._kwargs)
@@ -82,21 +89,23 @@ class Task(Process):
                 put_item(EXIT)
             self._que_err.put(EXIT)
 
+
 class Stage(object):
     """Represent a pool of parallel tasks that perform the same type of action on the input."""
+
     def __init__(self, target, *args, **kwargs):
         if not callable(target):
             raise TypeError("Target is not callable")
-        self.qsize = 0 # output queue size
+        self.qsize = 0  # output queue size
         self.workers = 1
         self._processes = None
         self._target = target
         self._args = args
         self._kwargs = kwargs
-        if hasattr(target, '__self__'):
+        if hasattr(target, "__self__"):
             self.target_name = "%s.%s" % (
                 target.__self__.__class__.__name__,
-                target.__name__
+                target.__name__,
             )
         else:
             self.target_name = target.__name__
@@ -107,7 +116,7 @@ class Stage(object):
             raise ValueError("workers have to be greater then zero")
         if qsize < 0:
             raise ValueError("qsize have to be greater or equal zero")
-        self.qsize = qsize # output que size
+        self.qsize = qsize  # output que size
         self.workers = workers
         return self
 
@@ -147,7 +156,7 @@ class Stage(object):
         """Wait for all the subprocesses to finish"""
         for p in self.processes:
             p.join()
-        self._processes = None # this ensure we can reuse this taskpool again if needed
+        self._processes = None  # this ensure we can reuse this taskpool again if needed
 
     def __str__(self):
         return "%s(x%d)" % (self.target_name, self.workers)
@@ -158,9 +167,11 @@ class Stage(object):
         return Pipeline([self, b])
 
     def __ror__(self, b):
-        if isinstance(b, collections.Iterable):
+        if isinstance(b, Iterable):
+
             def producer(x):
                 return x
+
             return Stage(producer, b) | self
         raise ValueError("Pipe input have to be iterable")
 
@@ -177,34 +188,46 @@ class Stage(object):
         self._kwargs = kwargs
         return self
 
+
 def stage(workers=1, qsize=0):
     def decorator(f):
         return Stage(f).setup(workers=workers, qsize=qsize)
+
     return decorator
+
 
 def map_stage(workers=1, qsize=0, filter_errors=False):
     def decorator(f):
         if filter_errors:
+
             def map_task(it, *args, **argv):
                 for item in it:
                     try:
                         yield f(item, *args, **argv)
                     except Exception as e:
                         pass
+
         else:
+
             def map_task(it, *args, **argv):
                 for item in it:
                     yield f(item, *args, **argv)
+
         map_task.__name__ = "pipe_map-%s" % f.__name__
         return Stage(map_task).setup(workers=workers, qsize=qsize)
+
     return decorator
+
 
 class TaskException(Exception):
     """Base class of exception propagated from one of the tasks"""
+
     pass
+
 
 class Pipeline(list):
     """Represent an ordered list of connected Stages"""
+
     def __or__(self, b):
         if isinstance(b, Stage):
             self.append(b)
@@ -216,12 +239,12 @@ class Pipeline(list):
         """Start all the tasks and return data on an iterator"""
         tt = None
         for i, tf in enumerate(self[:-1]):
-            tt = self[i+1]
+            tt = self[i + 1]
             q = Queue(tf.qsize)
             tf.set_out(q, tt.workers)
             tt.set_in(q, tf.workers)
 
-        if tt is None: # we have only one pool
+        if tt is None:  # we have only one pool
             tt = self[0]
         q = Queue(tt.qsize)
         err_q = Queue()
@@ -242,9 +265,15 @@ class Pipeline(list):
         if len(errors) > 0:
             task_name, ex = errors[0]
             if len(errors) == 1:
-                msg = 'The task "%s" raised %s' % (task_name, repr(ex),)
+                msg = 'The task "%s" raised %s' % (
+                    task_name,
+                    repr(ex),
+                )
             else:
-                msg = '%d tasks raised an exeption. First error reported on task "%s": %s' % (len(errors), task_name, repr(ex))
+                msg = (
+                    '%d tasks raised an exeption. First error reported on task "%s": %s'
+                    % (len(errors), task_name, repr(ex))
+                )
 
             raise TaskException(msg)
 
